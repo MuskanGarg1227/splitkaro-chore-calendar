@@ -2,19 +2,48 @@ import { AlertCircle, ArrowLeftRight, Check, Clock3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskStatus } from "@/lib/calendar-data";
 
-const CONFIG: Record<TaskStatus, { label: string; className: string; Icon: typeof Check }> = {
-  pending: { label: "Pending", className: "bg-status-pending-soft text-status-pending", Icon: Clock3 },
-  done: { label: "Done", className: "bg-status-done-soft text-status-done", Icon: Check },
-  swapped: { label: "Swapped", className: "bg-status-swapped-soft text-status-swapped", Icon: ArrowLeftRight },
-  overdue: { label: "Overdue", className: "bg-status-overdue-soft text-status-overdue", Icon: AlertCircle },
+export const STATUS_META: Record<
+  TaskStatus,
+  { label: string; chip: string; text: string; solid: string; Icon: typeof Check }
+> = {
+  pending: {
+    label: "Pending",
+    chip: "bg-status-pending-soft text-status-pending",
+    text: "text-status-pending",
+    solid: "bg-status-pending",
+    Icon: Clock3,
+  },
+  done: {
+    label: "Done",
+    chip: "bg-status-done-soft text-status-done",
+    text: "text-status-done",
+    solid: "bg-status-done",
+    Icon: Check,
+  },
+  swapped: {
+    label: "Swapped",
+    chip: "bg-status-swapped-soft text-status-swapped",
+    text: "text-status-swapped",
+    solid: "bg-status-swapped",
+    Icon: ArrowLeftRight,
+  },
+  overdue: {
+    label: "Overdue",
+    chip: "bg-status-overdue-soft text-status-overdue",
+    text: "text-status-overdue",
+    solid: "bg-status-overdue",
+    Icon: AlertCircle,
+  },
 };
 
-export function StatusChip({ status }: { status: TaskStatus }) {
-  const { label, className, Icon } = CONFIG[status];
+/** One badge style for every status: same height, padding, icon size. */
+export function StatusChip({ status, className }: { status: TaskStatus; className?: string }) {
+  const { label, chip, Icon } = STATUS_META[status];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold",
+        chip,
         className,
       )}
     >

@@ -6,8 +6,20 @@ import { AddTaskDrawer, type NewTask } from "@/components/calendar/AddTaskDrawer
 import { BottomNav } from "@/components/calendar/BottomNav";
 import { MateAvatar } from "@/components/calendar/MateAvatar";
 import { TaskCard } from "@/components/calendar/TaskCard";
+import { TaskDetailsDrawer } from "@/components/calendar/TaskDetailsDrawer";
+import { TaskSummary } from "@/components/calendar/TaskSummary";
 import { WeekStrip } from "@/components/calendar/WeekStrip";
-import { FLATMATES, SAMPLE_TASKS, TODAY, WEEK, getFlatmate, type Task } from "@/lib/calendar-data";
+import {
+  FLATMATES,
+  SAMPLE_TASKS,
+  TODAY,
+  WEEK,
+  getFlatmate,
+  setTaskDone,
+  summarizeTasks,
+  swapTask,
+  type Task,
+} from "@/lib/calendar-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,133 +61,122 @@ function CalendarHome() {
   const [tasks, setTasks] = useState<Task[]>(SAMPLE_TASKS);
   const [selected, setSelected] = useState(TODAY);
   const [addOpen, setAddOpen] = useState(false);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
 
   const day = WEEK.find((d) => d.date === selected) ?? WEEK[WEEK.length - 1]!;
   const dayName = FULL_DAY[day.weekday] ?? day.weekday;
   const isToday = selected === TODAY;
+  const shortDay = `${dayName}, ${day.day} Nov`;
 
   const dayTasks = useMemo(
     () => tasks.filter((t) => t.date === selected).sort((a, b) => timeValue(a.time) - timeValue(b.time)),
     [tasks, selected],
   );
-  const doneCount = dayTasks.filter((t) => t.status === "done").length;
-  const overdueCount = dayTasks.filter((t) => t.status === "overdue").length;
-  const progress = dayTasks.length ? Math.round((doneCount / dayTasks.length) * 100) : 0;
+  const summary = useMemo(() => summarizeTasks(dayTasks), [dayTasks]);
+  const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
+  const openTaskDay = WEEK.find((d) => d.date === openTask?.date);
 
-  function toggleDone(id: string) {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        if (t.status === "done") return { ...t, status: "pending" };
-        toast.success(`${t.title} marked done`, { description: `Nice one, ${getFlatmate(t.assigneeId).name}!` });
-        return { ...t, status: "done" };
-      }),
-    );
+  function updateTask(id: string, fn: (t: Task) => Task) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
+  }
+
+  function setDone(id: string, done: boolean) {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return;
+    updateTask(id, (x) => setTaskDone(x, done));
+    if (done) toast.success(`${t.title} marked done`, { description: `Nice one, ${getFlatmate(t.assigneeId).name}!` });
+  }
+
+  function swap(id: string, assigneeId: string) {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return;
+    updateTask(id, (x) => swapTask(x, assigneeId));
+    toast(`${t.title} is now with ${getFlatmate(assigneeId).name}`);
   }
 
   function addTask(n: NewTask) {
-    setTasks((prev) => [
-      ...prev,
-      { id: `new-${Date.now()}`, date: selected, status: "pending", ...n },
-    ]);
+    setTasks((prev) => [...prev, { id: `new-${Date.now()}`, date: selected, status: "pending", ...n }]);
     toast.success("Task added", { description: `${n.title} · ${getFlatmate(n.assigneeId).name} · ${n.time}` });
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[430px] bg-surface pb-40">
-      {/* Group header */}
-      <header className="hero-band rounded-b-[2rem] px-5 pb-16 pt-5 text-primary-foreground">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-extrabold tracking-tight opacity-90">
-            Splitkaro <span className="font-medium opacity-70">Calendar</span>
-          </span>
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative flex size-9 items-center justify-center rounded-full bg-primary-foreground/15"
-          >
-            <Bell className="size-[18px]" />
-            <span className="absolute right-2 top-2 size-2 rounded-full bg-status-overdue ring-2 ring-primary" />
-          </button>
-        </div>
-
-        <div className="mt-5 flex items-end justify-between gap-3">
-          <div>
-            <button type="button" className="flex items-center gap-1.5 text-[28px] font-extrabold leading-none">
+    <div className="mx-auto min-h-screen max-w-[430px] bg-surface pb-[148px]">
+      {/* Compact group header */}
+      <header className="hero-band rounded-b-3xl px-4 pb-10 pt-3 text-primary-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider opacity-75">Splitkaro Calendar</p>
+            <button type="button" className="flex items-center gap-1 text-2xl font-extrabold leading-tight">
               Flat 4 <ChevronDown className="size-5 opacity-70" />
             </button>
-            <p className="mt-1.5 text-sm opacity-80">4 flatmates · shared chores</p>
           </div>
-          <div className="flex -space-x-2">
-            {FLATMATES.map((m) => (
-              <MateAvatar key={m.id} mate={m} size="md" className="size-9 ring-2 ring-primary" />
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-1.5" aria-label="4 flatmates: Muskan, Nandini, Mehak, Lakshay">
+              {FLATMATES.map((m) => (
+                <MateAvatar key={m.id} mate={m} size="sm" className="size-7 ring-2 ring-primary" />
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="relative flex size-9 items-center justify-center rounded-full bg-primary-foreground/15"
+            >
+              <Bell className="size-5" />
+              <span className="absolute right-2 top-2 size-2 rounded-full bg-status-overdue ring-2 ring-primary" />
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="-mt-11 space-y-5 px-4">
+      <main className="-mt-7 space-y-3 px-4">
         <WeekStrip selected={selected} onSelect={setSelected} tasks={tasks} />
 
-        {/* Day summary */}
-        <section>
-          <div className="flex items-end justify-between px-1">
-            <div>
-              <h2 className="text-lg font-extrabold">{isToday ? "Today's tasks" : `${dayName}'s tasks`}</h2>
-              <p className="text-xs text-muted-foreground">
-                {dayName}, {day.day} November
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-bold">
-                {doneCount}/{dayTasks.length} <span className="font-medium text-muted-foreground">done</span>
-              </p>
-              {overdueCount > 0 && (
-                <p className="text-[11px] font-semibold text-status-overdue">{overdueCount} overdue</p>
-              )}
-            </div>
-          </div>
-          <div className="mx-1 mt-2.5 h-1.5 overflow-hidden rounded-full bg-border">
-            <div
-              className="h-full rounded-full bg-status-done transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+        <TaskSummary
+          title={isToday ? "Today's tasks" : `${dayName}'s tasks`}
+          dateLabel={`${dayName}, ${day.day} November`}
+          summary={summary}
+        />
 
-          <div className="mt-4 space-y-3">
-            {dayTasks.map((t) => (
-              <TaskCard key={t.id} task={t} onToggleDone={toggleDone} />
-            ))}
-            {dayTasks.length === 0 && (
-              <div className="rounded-2xl border border-dashed bg-card p-6 text-center">
-                <Sparkles className="mx-auto size-6 text-primary" />
-                <p className="mt-2 font-bold">Nothing planned</p>
-                <p className="text-sm text-muted-foreground">Enjoy the chai break ☕</p>
-              </div>
-            )}
+        <ul className="space-y-2.5" aria-label="Tasks">
+          {dayTasks.map((t) => (
+            <li key={t.id}>
+              <TaskCard task={t} onOpen={setOpenTaskId} onToggleDone={(id) => setDone(id, t.status !== "done")} />
+            </li>
+          ))}
+        </ul>
+        {dayTasks.length === 0 && (
+          <div className="rounded-2xl border border-dashed bg-card p-6 text-center">
+            <Sparkles className="mx-auto size-5 text-primary" />
+            <p className="mt-2 font-bold">Nothing planned</p>
+            <p className="text-sm text-muted-foreground">Enjoy the chai break ☕</p>
           </div>
-        </section>
+        )}
       </main>
 
-      {/* Add task */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[84px] z-20 mx-auto flex max-w-[430px] justify-end px-4">
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-primary pl-5 pr-6 text-[15px] font-bold text-primary-foreground shadow-fab transition-transform active:scale-95"
-        >
-          <Plus className="size-5" strokeWidth={3} />
-          Add Task
-        </button>
+      {/* Fixed dock: Add Task sits above the nav, so it never overlaps a card */}
+      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[430px] shadow-nav">
+        <div className="bg-background px-4 pb-2 pt-2.5">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-bold text-primary-foreground shadow-fab transition-transform active:scale-[0.98]"
+          >
+            <Plus className="size-5" strokeWidth={3} />
+            Add Task
+            <span className="font-medium opacity-75">· {isToday ? "Today" : shortDay}</span>
+          </button>
+        </div>
+        <BottomNav />
       </div>
 
-      <AddTaskDrawer
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        dayLabel={`${dayName}, ${day.day} Nov`}
-        onAdd={addTask}
+      <AddTaskDrawer open={addOpen} onOpenChange={setAddOpen} dayLabel={shortDay} onAdd={addTask} />
+      <TaskDetailsDrawer
+        task={openTask}
+        dayLabel={openTaskDay ? `${FULL_DAY[openTaskDay.weekday] ?? openTaskDay.weekday}, ${openTaskDay.day} Nov` : ""}
+        onClose={() => setOpenTaskId(null)}
+        onSetDone={setDone}
+        onSwap={swap}
       />
-      <BottomNav />
     </div>
   );
 }

@@ -1,109 +1,79 @@
-import {
-  Bath,
-  Check,
-  ClipboardList,
-  Clock,
-  CookingPot,
-  Droplets,
-  Shirt,
-  ShoppingBasket,
-  Sprout,
-  Trash2,
-  Wind,
-  Brush,
-} from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CURRENT_USER_ID, getFlatmate, type Task, type TaskKind } from "@/lib/calendar-data";
-import { MateAvatar } from "./MateAvatar";
-import { StatusChip } from "./StatusChip";
+import type { Task } from "@/lib/calendar-data";
+import { AssigneeLine } from "./AssigneeLine";
+import { STATUS_META, StatusChip } from "./StatusChip";
+import { TaskIcon } from "./TaskIcon";
 
-const KIND_ICON: Record<TaskKind, typeof Shirt> = {
-  laundry: Shirt,
-  groceries: ShoppingBasket,
-  garbage: Trash2,
-  kitchen: CookingPot,
-  water: Droplets,
-  plants: Sprout,
-  bathroom: Bath,
-  ironing: Wind,
-  mop: Brush,
-  other: ClipboardList,
-};
-
-const ACCENT: Record<Task["status"], string> = {
-  pending: "bg-status-pending",
-  done: "bg-status-done",
-  swapped: "bg-status-swapped",
-  overdue: "bg-status-overdue",
-};
-
-export function TaskCard({ task, onToggleDone }: { task: Task; onToggleDone: (id: string) => void }) {
-  const mate = getFlatmate(task.assigneeId);
-  const from = task.swappedFromId ? getFlatmate(task.swappedFromId) : null;
-  const Icon = KIND_ICON[task.kind];
+export function TaskCard({
+  task,
+  onOpen,
+  onToggleDone,
+}: {
+  task: Task;
+  onOpen: (id: string) => void;
+  onToggleDone: (id: string) => void;
+}) {
   const done = task.status === "done";
-  const isMe = mate.id === CURRENT_USER_ID;
 
   return (
-    <article className="relative flex gap-3 overflow-hidden rounded-2xl border bg-card p-3.5 pl-4 shadow-card">
-      <span className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", ACCENT[task.status])} />
+    <article className="relative overflow-hidden rounded-2xl border bg-card shadow-card transition-colors hover:border-primary/30">
+      {/* Whole card opens details; content sits above it without catching taps. */}
+      <button
+        type="button"
+        onClick={() => onOpen(task.id)}
+        aria-label={`Open details for ${task.title}`}
+        className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/60"
+      />
+      <span className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", STATUS_META[task.status].solid)} />
 
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-        <Icon className="size-5" strokeWidth={2.2} />
-      </div>
+      <div className="pointer-events-none relative flex gap-3 p-3.5 pl-4">
+        <TaskIcon kind={task.kind} />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3
-            className={cn(
-              "truncate text-[15px] font-bold leading-snug",
-              done && "text-muted-foreground line-through decoration-2",
-            )}
-          >
-            {task.title}
-          </h3>
-          <StatusChip status={task.status} />
-        </div>
-
-        {task.note && <p className="mt-0.5 truncate text-xs text-muted-foreground">{task.note}</p>}
-
-        <div className="mt-2.5 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-3 text-xs">
-            <span className="flex min-w-0 items-center gap-1.5 font-semibold">
-              <MateAvatar mate={mate} size="xs" />
-              <span className="truncate">{isMe ? "You" : mate.name}</span>
-            </span>
-            <span
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3
               className={cn(
-                "flex shrink-0 items-center gap-1 text-muted-foreground",
-                task.status === "overdue" && "font-semibold text-status-overdue",
+                "truncate pt-0.5 text-[15px] font-bold leading-tight",
+                done && "text-muted-foreground line-through decoration-2",
               )}
             >
-              <Clock className="size-3.5" />
-              {task.time}
-            </span>
+              {task.title}
+            </h3>
+            <StatusChip status={task.status} />
           </div>
-
-          <button
-            type="button"
-            onClick={() => onToggleDone(task.id)}
-            aria-label={done ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
-            className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-              done
-                ? "border-status-done bg-status-done text-primary-foreground"
-                : "border-input text-transparent hover:border-status-done hover:text-status-done",
-            )}
-          >
-            <Check className="size-4" strokeWidth={3} />
-          </button>
-        </div>
-
-        {from && (
-          <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-status-swapped-soft px-2 py-1 text-[11px] font-medium text-status-swapped">
-            Swapped from {from.id === CURRENT_USER_ID ? "you" : from.name} · {mate.name} is covering
+          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {task.note ?? "No description added"}
           </p>
-        )}
+
+          <div className="mt-2.5 flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <AssigneeLine task={task} />
+              <span
+                className={cn(
+                  "flex shrink-0 items-center gap-1 text-xs text-muted-foreground",
+                  task.status === "overdue" && "font-semibold text-status-overdue",
+                )}
+              >
+                <Clock className="size-3.5" />
+                {task.time}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onToggleDone(task.id)}
+              aria-label={done ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
+              className={cn(
+                "pointer-events-auto flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                done
+                  ? "border-status-done bg-status-done text-primary-foreground"
+                  : "border-input bg-card text-transparent hover:border-status-done hover:text-status-done",
+              )}
+            >
+              <Check className="size-4" strokeWidth={3} />
+            </button>
+          </div>
+        </div>
       </div>
     </article>
   );

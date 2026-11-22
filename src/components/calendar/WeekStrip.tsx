@@ -11,25 +11,39 @@ export function WeekStrip({
   onSelect: (date: string) => void;
   tasks: Task[];
 }) {
+  const index = WEEK.findIndex((d) => d.date === selected);
+  const prev = WEEK[index - 1];
+  const next = WEEK[index + 1];
+
   return (
-    <section className="rounded-3xl bg-card p-4 shadow-card">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">This week</p>
-          <h2 className="text-base font-bold">16 – 22 Nov 2026</h2>
-        </div>
-        <div className="flex gap-1">
+    <section className="rounded-2xl bg-card p-3 shadow-card">
+      <div className="mb-2 flex items-center justify-between px-1">
+        <h2 className="text-sm font-bold">16 – 22 Nov 2026</h2>
+        <div className="flex items-center gap-1">
+          {selected !== TODAY && (
+            <button
+              type="button"
+              onClick={() => onSelect(TODAY)}
+              className="mr-1 h-7 rounded-full bg-primary-soft px-2.5 text-[11px] font-bold text-primary"
+            >
+              Today
+            </button>
+          )}
           <button
             type="button"
-            aria-label="Previous week"
-            className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+            aria-label="Previous day"
+            disabled={!prev}
+            onClick={() => prev && onSelect(prev.date)}
+            className="flex size-7 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-35"
           >
             <ChevronLeft className="size-4" />
           </button>
           <button
             type="button"
-            aria-label="Next week"
-            className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+            aria-label="Next day"
+            disabled={!next}
+            onClick={() => next && onSelect(next.date)}
+            className="flex size-7 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-35"
           >
             <ChevronRight className="size-4" />
           </button>
@@ -49,47 +63,35 @@ export function WeekStrip({
               type="button"
               onClick={() => onSelect(d.date)}
               aria-pressed={isSelected}
-              aria-label={`${d.weekday} ${d.day} November, ${dayTasks.length} tasks`}
+              aria-label={`${d.weekday} ${d.day} November${isToday ? ", today" : ""}, ${dayTasks.length} tasks`}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-2xl py-2 transition-all",
+                "flex flex-col items-center gap-1 rounded-xl py-1.5 transition-colors",
                 isSelected ? "bg-primary text-primary-foreground shadow-fab" : "hover:bg-muted",
               )}
             >
               <span
                 className={cn(
                   "text-[11px] font-semibold",
-                  isSelected ? "text-primary-foreground/80" : "text-muted-foreground",
+                  isSelected ? "text-primary-foreground/80" : isToday ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                {d.weekday}
+                {isToday ? "Today" : d.weekday}
               </span>
-              <span className="text-lg font-bold leading-none">{d.day}</span>
-              <span className="flex h-1.5 items-center gap-0.5">
-                {dayTasks.length > 0 && (
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      isSelected
-                        ? "bg-primary-foreground"
-                        : hasOverdue
-                          ? "bg-status-overdue"
-                          : allDone
-                            ? "bg-status-done"
-                            : "bg-status-pending",
-                    )}
-                  />
+              <span className="text-base font-bold leading-none">{d.day}</span>
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  dayTasks.length === 0
+                    ? "bg-transparent"
+                    : isSelected
+                      ? "bg-primary-foreground"
+                      : hasOverdue
+                        ? "bg-status-overdue"
+                        : allDone
+                          ? "bg-status-done"
+                          : "bg-status-pending",
                 )}
-              </span>
-              {isToday && (
-                <span
-                  className={cn(
-                    "-mt-0.5 text-[9px] font-bold uppercase tracking-wide",
-                    isSelected ? "text-primary-foreground" : "text-primary",
-                  )}
-                >
-                  Today
-                </span>
-              )}
+              />
             </button>
           );
         })}

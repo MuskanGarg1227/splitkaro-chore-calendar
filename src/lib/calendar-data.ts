@@ -91,3 +91,41 @@ export function formatTime(value: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m} ${suffix}`;
 }
+
+/* ---------- Task logic (pure, used by the screen and tests) ---------- */
+
+export type TaskSummary = {
+  total: number;
+  done: number;
+  pending: number;
+  overdue: number;
+  swapped: number;
+};
+
+export function summarizeTasks(tasks: Task[]): TaskSummary {
+  const summary: TaskSummary = { total: tasks.length, done: 0, pending: 0, overdue: 0, swapped: 0 };
+  for (const t of tasks) summary[t.status] += 1;
+  return summary;
+}
+
+/** Share of tasks marked Done, as a whole-number percentage. */
+export function completionPercent(summary: TaskSummary): number {
+  if (summary.total === 0) return 0;
+  return Math.round((summary.done / summary.total) * 100);
+}
+
+/** Marks a task done, or un-done (back to Swapped if it was swapped, otherwise Pending). */
+export function setTaskDone(task: Task, done: boolean): Task {
+  if (done) return { ...task, status: "done" };
+  return { ...task, status: task.swappedFromId ? "swapped" : "pending" };
+}
+
+/** Hands a task to another flatmate, remembering who it was originally assigned to. */
+export function swapTask(task: Task, newAssigneeId: string): Task {
+  const originalId = task.swappedFromId ?? task.assigneeId;
+  if (newAssigneeId === originalId) {
+    const { swappedFromId: _dropped, ...rest } = task;
+    return { ...rest, assigneeId: originalId, status: "pending" };
+  }
+  return { ...task, assigneeId: newAssigneeId, swappedFromId: originalId, status: "swapped" };
+}

@@ -10,7 +10,7 @@ import {
 import { FLATMATES, QUICK_TASKS, formatTime, type TaskKind } from "@/lib/calendar-data";
 import { MateAvatar } from "./MateAvatar";
 
-export type NewTask = { title: string; kind: TaskKind; assigneeId: string; time: string };
+export type NewTask = { title: string; kind: TaskKind; assigneeId: string; time: string; note?: string };
 
 export function AddTaskDrawer({
   open,
@@ -27,14 +27,17 @@ export function AddTaskDrawer({
   const [kind, setKind] = useState<TaskKind>("other");
   const [assigneeId, setAssigneeId] = useState("muskan");
   const [time, setTime] = useState("19:00");
+  const [note, setNote] = useState("");
 
   const canSave = title.trim().length > 0;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) return;
-    onAdd({ title: title.trim(), kind, assigneeId, time: formatTime(time) });
+    const base = { title: title.trim(), kind, assigneeId, time: formatTime(time) };
+    onAdd(note.trim() ? { ...base, note: note.trim() } : base);
     setTitle("");
+    setNote("");
     setKind("other");
     onOpenChange(false);
   }
@@ -80,7 +83,18 @@ export function AddTaskDrawer({
             ))}
           </div>
 
-          <p className="mt-5 text-xs font-semibold text-muted-foreground">Assign to</p>
+          <label htmlFor="task-note" className="mt-4 block text-xs font-semibold text-muted-foreground">
+            Details (optional)
+          </label>
+          <input
+            id="task-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. 2 cans from Sharma ji"
+            className="mt-1.5 h-11 w-full rounded-xl border bg-surface px-3.5 text-sm font-medium outline-none focus:border-primary focus:bg-background"
+          />
+
+          <p className="mt-4 text-xs font-semibold text-muted-foreground">Assign to</p>
           <div className="mt-2 grid grid-cols-4 gap-2">
             {FLATMATES.map((m) => (
               <button
@@ -99,7 +113,7 @@ export function AddTaskDrawer({
             ))}
           </div>
 
-          <label htmlFor="task-time" className="mt-5 block text-xs font-semibold text-muted-foreground">
+          <label htmlFor="task-time" className="mt-4 block text-xs font-semibold text-muted-foreground">
             Due by
           </label>
           <input
@@ -113,7 +127,7 @@ export function AddTaskDrawer({
           <button
             type="submit"
             disabled={!canSave}
-            className="mt-6 h-12 w-full rounded-full bg-primary text-[15px] font-bold text-primary-foreground shadow-fab transition-opacity disabled:opacity-40 disabled:shadow-none"
+            className="mt-5 h-12 w-full rounded-full bg-primary text-[15px] font-bold text-primary-foreground shadow-fab transition-opacity disabled:opacity-40 disabled:shadow-none"
           >
             Add to calendar
           </button>
