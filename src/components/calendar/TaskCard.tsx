@@ -1,4 +1,4 @@
-import { Check, Clock } from "lucide-react";
+import { Bell, Check, Clock, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/calendar-data";
 import { AssigneeLine } from "./AssigneeLine";
@@ -58,6 +58,12 @@ export function TaskCard({
                 <Clock className="size-3.5" />
                 {task.time}
               </span>
+              {(task.seriesId || task.reminder) && (
+                <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                  {task.seriesId && <Repeat className="size-3.5" aria-label="Repeats" />}
+                  {task.reminder && <Bell className="size-3.5" aria-label={`Reminder at ${task.reminder}`} />}
+                </span>
+              )}
             </div>
             <button
               type="button"

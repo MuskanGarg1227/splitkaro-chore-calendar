@@ -33,4 +33,5 @@ use the editor.
 - Calendar prototype uses in-memory sample data from `src/lib/calendar-data.ts` only; no backend or auth until explicitly requested.
 - Layout is mobile-first, capped at 430px wide and centred; fixed elements (bottom nav, Add Task button) share that cap so they align on desktop.
 - Status and flatmate colours are semantic tokens (`--status-*`, `--mate-N`) in `src/styles.css`; components never hardcode colours.
-- Task status rules (summary counts, completion %, done/undo, swaps) live as pure functions in `src/lib/calendar-data.ts` and are covered by `src/test/calendar-data.test.ts`; UI only calls them.
+- Task rules (summary counts, completion %, done/undo, swaps, form validation, recurrence expansion) live as pure functions in `src/lib/calendar-data.ts`, tested in `src/test/`; UI only calls them.
+- Dates are `YYYY-MM-DD` strings handled with UTC helpers in `calendar-data.ts` to avoid timezone drift; recurring tasks are expanded into one task per date at creation (capped by `RECURRING_HORIZON_DAYS` when no end date) so each date keeps its own status.

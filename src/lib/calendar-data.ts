@@ -20,6 +20,12 @@ export type Task = {
   time: string; // display, e.g. "8:00 AM"
   status: TaskStatus;
   swappedFromId?: string;
+  /** Display time, e.g. "8:30 PM" */
+  reminder?: string;
+  /** Shared by every occurrence of a recurring task */
+  seriesId?: string;
+  /** e.g. "Every Monday until 28 Dec" */
+  repeatLabel?: string;
 };
 
 export const FLATMATES: Flatmate[] = [
@@ -33,16 +39,6 @@ export const CURRENT_USER_ID = "muskan";
 
 /** Sample "today" for the prototype — fixed so the screen renders the same everywhere. */
 export const TODAY = "2026-11-22";
-
-export const WEEK: { date: string; weekday: string; day: number }[] = [
-  { date: "2026-11-16", weekday: "Mon", day: 16 },
-  { date: "2026-11-17", weekday: "Tue", day: 17 },
-  { date: "2026-11-18", weekday: "Wed", day: 18 },
-  { date: "2026-11-19", weekday: "Thu", day: 19 },
-  { date: "2026-11-20", weekday: "Fri", day: 20 },
-  { date: "2026-11-21", weekday: "Sat", day: 21 },
-  { date: "2026-11-22", weekday: "Sun", day: 22 },
-];
 
 export const SAMPLE_TASKS: Task[] = [
   // Mon
@@ -128,4 +124,211 @@ export function swapTask(task: Task, newAssigneeId: string): Task {
     return { ...rest, assigneeId: originalId, status: "pending" };
   }
   return { ...task, assigneeId: newAssigneeId, swappedFromId: originalId, status: "swapped" };
+}
+
+/* ---------- Dates (YYYY-MM-DD strings, timezone-safe) ---------- */
+
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const FULL_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+const FULL_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+function parseISO(d: string): Date {
+  const [y = 1970, m = 1, day = 1] = d.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, day));
+}
+function toISO(dt: Date): string {
+  return dt.toISOString().slice(0, 10);
+}
+
+export function addDays(d: string, n: number): string {
+  const dt = parseISO(d);
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return toISO(dt);
+}
+
+/** 0 = Monday … 6 = Sunday */
+export function weekdayIndex(d: string): number {
+  return (parseISO(d).getUTCDay() + 6) % 7;
+}
+
+export function startOfWeek(d: string): string {
+  return addDays(d, -weekdayIndex(d));
+}
+
+export type WeekDay = { date: string; weekday: string; day: number; month: string };
+
+export function weekDays(anchor: string): WeekDay[] {
+  const monday = startOfWeek(anchor);
+  return WEEKDAYS.map((weekday, i) => {
+    const date = addDays(monday, i);
+    const dt = parseISO(date);
+    return { date, weekday, day: dt.getUTCDate(), month: MONTHS[dt.getUTCMonth()]! };
+  });
+}
+
+/** "Sunday, 22 Nov" (short) or "Sunday, 22 November" (long) */
+export function formatDayLabel(d: string, style: "short" | "long" = "short"): string {
+  const dt = parseISO(d);
+  const month = (style === "short" ? MONTHS : FULL_MONTHS)[dt.getUTCMonth()];
+  return `${FULL_WEEKDAYS[weekdayIndex(d)]}, ${dt.getUTCDate()} ${month}`;
+}
+
+/** "16 – 22 Nov 2026" or "30 Nov – 6 Dec 2026" */
+export function formatWeekRange(anchor: string): string {
+  const days = weekDays(anchor);
+  const first = parseISO(days[0]!.date);
+  const last = parseISO(days[6]!.date);
+  const fm = MONTHS[first.getUTCMonth()];
+  const lm = MONTHS[last.getUTCMonth()];
+  const fy = first.getUTCFullYear();
+  const ly = last.getUTCFullYear();
+  if (fy !== ly) return `${first.getUTCDate()} ${fm} ${fy} – ${last.getUTCDate()} ${lm} ${ly}`;
+  if (fm !== lm) return `${first.getUTCDate()} ${fm} – ${last.getUTCDate()} ${lm} ${ly}`;
+  return `${first.getUTCDate()} – ${last.getUTCDate()} ${lm} ${ly}`;
+}
+
+/* ---------- Creating tasks ---------- */
+
+export type RepeatFrequency = "daily" | "weekly" | "custom";
+
+export type Recurrence = {
+  frequency: RepeatFrequency;
+  /** Weekday indexes (0 = Mon). Ignored for daily. */
+  days: number[];
+  startDate: string;
+  endDate?: string;
+};
+
+/** Without an end date, recurring tasks are scheduled this many days ahead. */
+export const RECURRING_HORIZON_DAYS = 84;
+
+export function recurrenceDates(r: Recurrence, horizonDays = RECURRING_HORIZON_DAYS): string[] {
+  const last = r.endDate ?? addDays(r.startDate, horizonDays - 1);
+  const out: string[] = [];
+  for (let d = r.startDate; d <= last && out.length < 400; d = addDays(d, 1)) {
+    if (r.frequency === "daily" || r.days.includes(weekdayIndex(d))) out.push(d);
+  }
+  return out;
+}
+
+export function repeatLabel(r: Recurrence): string {
+  const sorted = [...r.days].sort((a, b) => a - b);
+  let base: string;
+  if (r.frequency === "daily") base = "Every day";
+  else if (sorted.length === 1) base = `Every ${FULL_WEEKDAYS[sorted[0]!]}`;
+  else base = `Every ${sorted.map((i) => WEEKDAYS[i]).join(", ")}`;
+  if (!r.endDate) return base;
+  const end = parseISO(r.endDate);
+  return `${base} until ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`;
+}
+
+export type TaskFormValues = {
+  type: "one-off" | "recurring";
+  title: string;
+  description: string;
+  assigneeId: string;
+  /** One-off date */
+  date: string;
+  /** "HH:MM" */
+  time: string;
+  /** "HH:MM" or "" */
+  reminder: string;
+  frequency: RepeatFrequency;
+  days: number[];
+  startDate: string;
+  endDate: string;
+};
+
+export type TaskFormErrors = Partial<Record<keyof TaskFormValues, string>>;
+
+export function emptyTaskForm(date: string): TaskFormValues {
+  return {
+    type: "one-off",
+    title: "",
+    description: "",
+    assigneeId: "",
+    date,
+    time: "",
+    reminder: "",
+    frequency: "weekly",
+    days: [weekdayIndex(date)],
+    startDate: date,
+    endDate: "",
+  };
+}
+
+function toRecurrence(v: TaskFormValues): Recurrence {
+  const r: Recurrence = { frequency: v.frequency, days: v.days, startDate: v.startDate };
+  return v.endDate ? { ...r, endDate: v.endDate } : r;
+}
+
+export function validateTaskForm(v: TaskFormValues): TaskFormErrors {
+  const e: TaskFormErrors = {};
+  const title = v.title.trim();
+  if (!title) e.title = "Give the task a name";
+  else if (title.length > 60) e.title = "Keep the name under 60 characters";
+  if (v.description.trim().length > 140) e.description = "Keep the description under 140 characters";
+  if (!FLATMATES.some((f) => f.id === v.assigneeId)) e.assigneeId = "Choose who's doing this";
+  if (!v.time) e.time = "Add a due time";
+  if (v.reminder && v.time && v.reminder >= v.time) e.reminder = "Reminder must be before the due time";
+
+  if (v.type === "one-off") {
+    if (!v.date) e.date = "Pick a date";
+  } else {
+    if (!v.startDate) e.startDate = "Pick a start date";
+    if (v.frequency === "weekly" && v.days.length !== 1) e.days = "Pick the day it repeats on";
+    if (v.frequency === "custom" && v.days.length === 0) e.days = "Pick at least one day";
+    if (v.endDate && v.startDate && v.endDate < v.startDate) e.endDate = "End date can't be before the start date";
+    if (!e.startDate && !e.days && !e.endDate && recurrenceDates(toRecurrence(v)).length === 0) {
+      e.days = "None of these days fall between the start and end date";
+    }
+  }
+  return e;
+}
+
+/** Best-guess icon from the task name, incl. common Hinglish words. */
+export function guessKind(title: string): TaskKind {
+  const t = title.toLowerCase();
+  const rules: [TaskKind, RegExp][] = [
+    ["laundry", /laundry|kapd|wash(ing)? clothes/],
+    ["groceries", /grocer|sabzi|kirana|vegetable|milk|doodh|dmart|blinkit/],
+    ["garbage", /garbage|kachra|trash|bin|dustbin/],
+    ["kitchen", /kitchen|dish|bartan|utensil|cook|chimney/],
+    ["water", /water|bisleri|\bcan/],
+    ["plants", /plant|garden/],
+    ["bathroom", /bathroom|toilet|washroom/],
+    ["ironing", /iron|istri|press/],
+    ["mop", /mop|jhadu|pocha|sweep|dust/],
+  ];
+  return rules.find(([, re]) => re.test(t))?.[0] ?? "other";
+}
+
+/** Turns a valid form into one task (one-off) or one task per date (recurring), all Pending. */
+export function buildTasksFromForm(v: TaskFormValues, makeId: () => string): Task[] {
+  const description = v.description.trim();
+  const base = {
+    title: v.title.trim(),
+    kind: guessKind(v.title),
+    assigneeId: v.assigneeId,
+    time: formatTime(v.time),
+    status: "pending" as const,
+    ...(description ? { note: description } : {}),
+    ...(v.reminder ? { reminder: formatTime(v.reminder) } : {}),
+  };
+  if (v.type === "one-off") return [{ ...base, id: makeId(), date: v.date }];
+
+  const r = toRecurrence(v);
+  const seriesId = makeId();
+  const label = repeatLabel(r);
+  return recurrenceDates(r).map((date, i) => ({
+    ...base,
+    id: `${seriesId}-${i}`,
+    date,
+    seriesId,
+    repeatLabel: label,
+  }));
 }

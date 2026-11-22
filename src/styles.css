@@ -178,3 +178,29 @@
 @utility pb-safe {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
+
+/* Form fields used in the task sheets */
+@utility field-input {
+  height: 2.75rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-input);
+  background-color: var(--color-surface);
+  padding-inline: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+  outline: none;
+  transition: border-color 150ms, background-color 150ms;
+  &:focus,
+  &:focus-visible,
+  &[data-state="open"] {
+    border-color: var(--color-primary);
+    background-color: var(--color-background);
+  }
+}
+
+@utility field-invalid {
+  border-color: var(--color-destructive);
+  background-color: var(--color-status-overdue-soft);
+}

@@ -1,4 +1,4 @@
-import { Check, Clock, RotateCcw } from "lucide-react";
+import { Bell, Check, Clock, Repeat, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Drawer,
@@ -65,6 +65,24 @@ export function TaskDetailsDrawer({
                   {dayLabel} · {task.time}
                 </dd>
               </div>
+              {task.reminder && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-xs font-semibold text-muted-foreground">Reminder</dt>
+                  <dd className="flex items-center gap-1.5 text-xs font-semibold">
+                    <Bell className="size-3.5" />
+                    {task.reminder}
+                  </dd>
+                </div>
+              )}
+              {task.repeatLabel && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-xs font-semibold text-muted-foreground">Repeats</dt>
+                  <dd className="flex items-center gap-1.5 text-right text-xs font-semibold">
+                    <Repeat className="size-3.5 shrink-0" />
+                    {task.repeatLabel}
+                  </dd>
+                </div>
+              )}
             </dl>
 
             {!done && (

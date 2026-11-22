@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Bell, ChevronDown, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { AddTaskDrawer, type NewTask } from "@/components/calendar/AddTaskDrawer";
+import { AddTaskDrawer } from "@/components/calendar/AddTaskDrawer";
 import { BottomNav } from "@/components/calendar/BottomNav";
 import { MateAvatar } from "@/components/calendar/MateAvatar";
 import { TaskCard } from "@/components/calendar/TaskCard";
@@ -13,12 +13,16 @@ import {
   FLATMATES,
   SAMPLE_TASKS,
   TODAY,
-  WEEK,
+  buildTasksFromForm,
+  formatDayLabel,
   getFlatmate,
   setTaskDone,
   summarizeTasks,
   swapTask,
+  weekdayIndex,
+  FULL_WEEKDAYS,
   type Task,
+  type TaskFormValues,
 } from "@/lib/calendar-data";
 
 export const Route = createFileRoute("/")({
@@ -41,16 +45,6 @@ export const Route = createFileRoute("/")({
   component: CalendarHome,
 });
 
-const FULL_DAY: Record<string, string> = {
-  Mon: "Monday",
-  Tue: "Tuesday",
-  Wed: "Wednesday",
-  Thu: "Thursday",
-  Fri: "Friday",
-  Sat: "Saturday",
-  Sun: "Sunday",
-};
-
 function timeValue(t: string) {
   const [hm = "0:00", ap] = t.split(" ");
   const [h = 0, m = 0] = hm.split(":").map(Number);
@@ -63,10 +57,9 @@ function CalendarHome() {
   const [addOpen, setAddOpen] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
 
-  const day = WEEK.find((d) => d.date === selected) ?? WEEK[WEEK.length - 1]!;
-  const dayName = FULL_DAY[day.weekday] ?? day.weekday;
+  const dayName = FULL_WEEKDAYS[weekdayIndex(selected)];
   const isToday = selected === TODAY;
-  const shortDay = `${dayName}, ${day.day} Nov`;
+  const shortDay = formatDayLabel(selected);
 
   const dayTasks = useMemo(
     () => tasks.filter((t) => t.date === selected).sort((a, b) => timeValue(a.time) - timeValue(b.time)),
@@ -74,7 +67,6 @@ function CalendarHome() {
   );
   const summary = useMemo(() => summarizeTasks(dayTasks), [dayTasks]);
   const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
-  const openTaskDay = WEEK.find((d) => d.date === openTask?.date);
 
   function updateTask(id: string, fn: (t: Task) => Task) {
     setTasks((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
@@ -94,9 +86,20 @@ function CalendarHome() {
     toast(`${t.title} is now with ${getFlatmate(assigneeId).name}`);
   }
 
-  function addTask(n: NewTask) {
-    setTasks((prev) => [...prev, { id: `new-${Date.now()}`, date: selected, status: "pending", ...n }]);
-    toast.success("Task added", { description: `${n.title} · ${getFlatmate(n.assigneeId).name} · ${n.time}` });
+  function createTask(values: TaskFormValues) {
+    const created = buildTasksFromForm(values, () => `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+    const first = created[0];
+    if (!first) return;
+    setTasks((prev) => [...prev, ...created]);
+    setSelected(first.date);
+    const who = getFlatmate(first.assigneeId).name;
+    if (created.length === 1 && !first.seriesId) {
+      toast.success("Task created", { description: `${first.title} · ${who} · ${formatDayLabel(first.date)}, ${first.time}` });
+    } else {
+      toast.success("Recurring task created", {
+        description: `${first.title} · ${who} · ${first.repeatLabel} (${created.length} dates)`,
+      });
+    }
   }
 
   return (
@@ -133,7 +136,7 @@ function CalendarHome() {
 
         <TaskSummary
           title={isToday ? "Today's tasks" : `${dayName}'s tasks`}
-          dateLabel={`${dayName}, ${day.day} November`}
+          dateLabel={formatDayLabel(selected, "long")}
           summary={summary}
         />
 
@@ -169,10 +172,10 @@ function CalendarHome() {
         <BottomNav />
       </div>
 
-      <AddTaskDrawer open={addOpen} onOpenChange={setAddOpen} dayLabel={shortDay} onAdd={addTask} />
+      <AddTaskDrawer open={addOpen} onOpenChange={setAddOpen} defaultDate={selected} onCreate={createTask} />
       <TaskDetailsDrawer
         task={openTask}
-        dayLabel={openTaskDay ? `${FULL_DAY[openTaskDay.weekday] ?? openTaskDay.weekday}, ${openTaskDay.day} Nov` : ""}
+        dayLabel={openTask ? formatDayLabel(openTask.date) : ""}
         onClose={() => setOpenTaskId(null)}
         onSetDone={setDone}
         onSwap={swap}

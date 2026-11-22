@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TODAY, WEEK, type Task } from "@/lib/calendar-data";
+import { TODAY, addDays, formatWeekRange, weekDays, type Task } from "@/lib/calendar-data";
 
 export function WeekStrip({
   selected,
@@ -11,14 +11,12 @@ export function WeekStrip({
   onSelect: (date: string) => void;
   tasks: Task[];
 }) {
-  const index = WEEK.findIndex((d) => d.date === selected);
-  const prev = WEEK[index - 1];
-  const next = WEEK[index + 1];
+  const days = weekDays(selected);
 
   return (
     <section className="rounded-2xl bg-card p-3 shadow-card">
       <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-sm font-bold">16 – 22 Nov 2026</h2>
+        <h2 className="text-sm font-bold">{formatWeekRange(selected)}</h2>
         <div className="flex items-center gap-1">
           {selected !== TODAY && (
             <button
@@ -31,18 +29,16 @@ export function WeekStrip({
           )}
           <button
             type="button"
-            aria-label="Previous day"
-            disabled={!prev}
-            onClick={() => prev && onSelect(prev.date)}
+            aria-label="Previous week"
+            onClick={() => onSelect(addDays(selected, -7))}
             className="flex size-7 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-35"
           >
             <ChevronLeft className="size-4" />
           </button>
           <button
             type="button"
-            aria-label="Next day"
-            disabled={!next}
-            onClick={() => next && onSelect(next.date)}
+            aria-label="Next week"
+            onClick={() => onSelect(addDays(selected, 7))}
             className="flex size-7 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-35"
           >
             <ChevronRight className="size-4" />
@@ -51,7 +47,7 @@ export function WeekStrip({
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {WEEK.map((d) => {
+        {days.map((d) => {
           const dayTasks = tasks.filter((t) => t.date === d.date);
           const hasOverdue = dayTasks.some((t) => t.status === "overdue");
           const allDone = dayTasks.length > 0 && dayTasks.every((t) => t.status === "done");
@@ -63,7 +59,7 @@ export function WeekStrip({
               type="button"
               onClick={() => onSelect(d.date)}
               aria-pressed={isSelected}
-              aria-label={`${d.weekday} ${d.day} November${isToday ? ", today" : ""}, ${dayTasks.length} tasks`}
+              aria-label={`${d.weekday} ${d.day} ${d.month}${isToday ? ", today" : ""}, ${dayTasks.length} tasks`}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-xl py-1.5 transition-colors",
                 isSelected ? "bg-primary text-primary-foreground shadow-fab" : "hover:bg-muted",
