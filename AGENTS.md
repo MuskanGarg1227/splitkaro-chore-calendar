@@ -28,3 +28,8 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- Calendar prototype uses in-memory sample data from `src/lib/calendar-data.ts` only; no backend or auth until explicitly requested.
+- Layout is mobile-first, capped at 430px wide and centred; fixed elements (bottom nav, Add Task button) share that cap so they align on desktop.
+- Status and flatmate colours are semantic tokens (`--status-*`, `--mate-N`) in `src/styles.css`; components never hardcode colours.
